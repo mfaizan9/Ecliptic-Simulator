@@ -1,0 +1,251 @@
+/* ============================================================================
+   Seasons and Ecliptic Simulator -- sim-specific styles only.
+   Shared palette/classes come from foundation/kl-unl.css (never edited here).
+   ========================================================================== */
+
+:root {
+  /* Sim stage palette (the orbit scene reads against a near-black sky,
+     matching the original Flash stage). */
+  --stage-bg: #000000;
+  --stage-fg: #ffffff;
+  --sky-top: #6599ef;
+  --sky-bottom: #b0b6f2;
+  --ground-top: #7ea213;
+  --ground-bottom: #326d1d;
+  --panel-pad: 0.75rem;
+  --readout-fg: #f2f2f2;
+}
+
+/* Comfortable, zoomable base type (rem-based; >=1.125rem floor). */
+body { font-size: 1.125rem; }
+
+.app-shell { max-width: 75rem; }
+
+/* ----- Overall layout: left stage, right column, bottom timeline ----- */
+.sim-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr);
+  grid-template-areas:
+    "orbit  right"
+    "timeline timeline";
+  gap: 0.5rem;
+  padding: 0.5rem;
+  align-items: stretch;          /* left orbit box matches the right column height */
+}
+.sim-orbit    { grid-area: orbit; display: flex; flex-direction: column; }
+.sim-right    { grid-area: right; display: flex; flex-direction: column; gap: 0.5rem; align-self: start; }
+.sim-timeline { grid-area: timeline; }
+
+/* The orbit stage grows to fill the extra height; the canvas keeps its aspect
+   ratio and centres in the (black) stage, so the left box equals the combined
+   height of the two right boxes without distorting or breaking hit-testing. */
+.sim-orbit .stage-wrap {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.panel { padding-bottom: 0.5rem; }
+
+/* ----- Canvas stage wrappers (canvas scales, overlays positioned) ----- */
+.stage-wrap {
+  position: relative;
+  background: var(--stage-bg);
+  margin: 0;
+  line-height: 0;
+}
+.sim-orbit .stage-wrap,
+.sim-earth .stage-wrap { border: 1px solid var(--border-color, #767676); }
+
+.stage-canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+  touch-action: none;           /* draggable canvases must not scroll the page */
+  background: var(--stage-bg);
+}
+.stage-canvas:focus-visible {
+  outline: 0.125rem solid var(--outline-color, #005fcc);
+  outline-offset: -0.25rem;
+}
+
+/* Sunlight panel canvas has its own sky/ground painted in JS */
+.sim-sunlight .stage-canvas { background: var(--sky-bottom); }
+
+/* ----- Overlaid hint text (matches original italic instructions) ----- */
+.stage-hint {
+  position: absolute;
+  margin: 0;
+  padding: 0;
+  max-width: 46%;
+  font-style: italic;
+  font-size: 0.8rem;
+  line-height: 1.25;
+  color: var(--stage-fg);
+  pointer-events: none;
+  text-shadow: 0 1px 2px #000;
+}
+.stage-hint--tl { top: 0.4rem; left: 0.5rem; text-align: left; }
+.stage-hint--tr { top: 0.4rem; right: 0.5rem; text-align: right; }
+
+/* ----- Overlaid numeric readouts ----- */
+.stage-readout {
+  position: absolute;
+  color: var(--readout-fg);
+  font-size: 0.9rem;
+  line-height: 1.4;
+  text-shadow: 0 1px 2px #000;
+}
+.stage-readout--bl { bottom: 0.5rem; left: 0.6rem; }
+.stage-readout--tr { top: 0.5rem; right: 0.6rem; }
+.stage-readout--box {
+  background: rgba(255,255,255,0.92);
+  color: #1a1a1a;
+  border: 1px solid var(--border-color, #767676);
+  border-radius: 4px;
+  padding: 0.3rem 0.5rem;
+  text-shadow: none;
+  font-size: 0.85rem;
+}
+.ro-label { white-space: nowrap; }
+.ro-value { font-variant-numeric: tabular-nums; }
+
+/* ----- Overlaid "labels" checkbox on a stage ----- */
+.stage-check {
+  position: absolute;
+  bottom: 0.4rem;
+  right: 0.5rem;
+  background: rgba(255,255,255,0.9);
+  border-radius: 4px;
+  padding: 0.1rem 0.4rem;
+}
+.stage-check label { font-size: 0.85rem; }
+
+/* N / S direction labels under the sunlight ground */
+.stage-dirlabels {
+  position: absolute;
+  left: 0; right: 0; bottom: 1.4rem;
+  display: flex;
+  justify-content: space-between;
+  padding: 0 0.6rem;
+  color: #ffffff;
+  font-weight: bold;
+  font-size: 0.95rem;
+  pointer-events: none;
+}
+
+/* ----- Under-stage controls for left panel ----- */
+.under-stage {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.5rem 1rem 0;
+  flex-wrap: wrap;
+}
+.under-stage .control-fieldset { padding: 0; }
+.subsolar-row { padding-top: 0.15rem; }
+
+/* ----- Right-column control boxes (two radio groups side by side) ----- */
+.sim-rightcontrols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+}
+.choicebox {
+  border: 1px solid var(--border-color, #767676) !important;
+  border-radius: 4px;
+  padding: 0.4rem 0.6rem !important;
+  background: var(--background-color, #fff);
+}
+
+/* ----- Earth latitude slider ----- */
+.latitude-control {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem 0.25rem;
+}
+.latitude-control label { font-size: 0.9rem; white-space: nowrap; }
+
+/* ----- Timeline ----- */
+.sim-timeline .timeline-inner {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.5rem 1rem 0.75rem;
+}
+.timeline-slider-wrap { position: relative; }
+.day-slider { width: 100%; display: block; cursor: pointer; }
+.month-ticks {
+  position: relative;
+  height: 1.4rem;
+  margin-top: 0.1rem;
+  font-size: 0.8rem;
+}
+.month-ticks .tick {
+  position: absolute;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  color: var(--foreground-color, #1a1a1a);
+}
+.timeline-right {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  white-space: nowrap;
+}
+.day-display {
+  min-width: 9rem;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-size: 1rem;
+  font-weight: bold;
+}
+
+/* "start animation" button: blue background, white text (KL-UNL palette). */
+#animButton {
+  color: var(--button-foreground-color, #ffffff);
+  background: var(--button-background-color, #005a9c);
+  border: var(--border-width, 1px) var(--border-style, solid) var(--border-color, #767676);
+  border-radius: 4px;
+  font-weight: 600;
+}
+#animButton:hover,
+#animButton:focus-visible {
+  filter: brightness(var(--button-hover-darken, 0.9));
+}
+
+/* Equation containers (MathJax) inherit color */
+mjx-container { color: inherit; }
+
+/* ============================================================================
+   Responsive: tablet/iPad -> phone portrait (single column, stacked)
+   ========================================================================== */
+@media (max-width: 56rem) {
+  .sim-layout {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "orbit"
+      "right"
+      "timeline";
+  }
+  .sim-timeline .timeline-inner { grid-template-columns: 1fr; }
+  .timeline-right { justify-content: space-between; }
+  .day-display { text-align: left; }
+}
+
+@media (max-width: 36rem) {
+  body { font-size: 1.0625rem; }
+  .sim-rightcontrols { grid-template-columns: 1fr; }
+  .under-stage { flex-direction: column; gap: 0.4rem; }
+  .stage-hint { font-size: 0.72rem; max-width: 52%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { scroll-behavior: auto; }
+}

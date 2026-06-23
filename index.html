@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Seasons and Ecliptic Simulator</title>
+
+  <!-- Shared KL-UNL foundation (copied in unchanged) -->
+  <link rel="stylesheet" href="foundation/kl-unl.css" type="text/css" media="all">
+  <!-- Sim-specific styles only -->
+  <link rel="stylesheet" href="styles/styles.css" type="text/css" media="all">
+
+  <!-- MathJax: bundled locally (no CDN at runtime). tex-svg output keeps the
+       MathJax contextual menu ("Show Math As...") working. -->
+  <script>
+    window.MathJax = {
+      tex: { inlineMath: [['\\(', '\\)']] },
+      svg: { fontCache: 'global' },
+      options: { menuOptions: { settings: { assistiveMml: true } } }
+    };
+  </script>
+  <script defer src="assets/mathjax/tex-svg.js"></script>
+</head>
+<body>
+  <div class="app-shell">
+    <kl-unl-masthead sim-id="eclipticsimulator" json-url="foundation/contents.json"></kl-unl-masthead>
+
+    <main class="sim-layout" aria-label="Seasons and Ecliptic Simulator">
+
+      <!-- ===================== LEFT: ORBIT / CELESTIAL SPHERE VIEW ===================== -->
+      <section class="panel sim-orbit" aria-labelledby="orbit-heading">
+        <h2 id="orbit-heading" class="sr-only">Orbit and celestial sphere view</h2>
+
+        <div class="stage-wrap">
+          <canvas id="orbitCanvas" class="stage-canvas" width="630" height="555"
+                  role="application"
+                  aria-describedby="orbit-instr-persp orbit-instr-drag orbit-live"
+                  tabindex="0"></canvas>
+
+          <p class="stage-hint stage-hint--tl" id="orbit-instr-persp"></p>
+          <p class="stage-hint stage-hint--tr" id="orbit-instr-drag"></p>
+
+          <div class="stage-readout stage-readout--bl" aria-hidden="true">
+            <div><span class="ro-label">sun's declination:</span> <span id="decField" class="ro-value"></span></div>
+            <div><span class="ro-label">sun's right ascension:</span> <span id="raField" class="ro-value"></span></div>
+          </div>
+
+          <div class="stage-check stage-check--br control-choice">
+            <input type="checkbox" id="orbitLabels">
+            <label for="orbitLabels">labels</label>
+          </div>
+        </div>
+
+        <div class="under-stage">
+          <fieldset class="control-fieldset">
+            <legend class="control-fieldset__legend sr-only">Left panel view</legend>
+            <div class="control-choice">
+              <input type="radio" id="viewOrbit" name="centeredObject" value="sun" checked>
+              <label for="viewOrbit">orbit view</label>
+            </div>
+            <div class="control-choice">
+              <input type="radio" id="viewCelestial" name="centeredObject" value="earth">
+              <label for="viewCelestial">celestial sphere</label>
+            </div>
+          </fieldset>
+          <div class="control-choice subsolar-row">
+            <input type="checkbox" id="showSubsolar" checked>
+            <label for="showSubsolar">show subsolar point</label>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===================== RIGHT COLUMN ===================== -->
+      <div class="sim-right">
+
+        <!-- Upper right: earth view with latitude selector -->
+        <section class="panel sim-earth" aria-labelledby="earth-heading">
+          <h2 id="earth-heading" class="sr-only">Earth view and observer latitude</h2>
+
+          <div class="stage-wrap stage-wrap--earth">
+            <canvas id="earthCanvas" class="stage-canvas" width="380" height="300"
+                    role="application"
+                    aria-describedby="earth-instr earth-live"
+                    tabindex="0"></canvas>
+            <p class="stage-hint stage-hint--tr" id="earth-instr"></p>
+            <div class="stage-readout stage-readout--bl" aria-hidden="true">
+              <span id="latitudeField" class="ro-label"></span>
+            </div>
+            <div class="stage-check stage-check--br control-choice">
+              <input type="checkbox" id="earthLabels">
+              <label for="earthLabels">labels</label>
+            </div>
+          </div>
+
+          <div class="control-row latitude-control">
+            <label for="latSlider" id="latSliderLabel">observer's latitude</label>
+            <input type="range" id="latSlider" class="control-row__slider"
+                   min="-90" max="90" step="0.1" value="10"
+                   aria-describedby="latSliderLabel">
+          </div>
+        </section>
+
+        <!-- Middle right: feature + view-type radio groups -->
+        <div class="sim-rightcontrols">
+          <fieldset class="control-fieldset choicebox">
+            <legend class="control-fieldset__legend sr-only">Lower panel display</legend>
+            <div class="control-choice">
+              <input type="radio" id="featSpread" name="observerFeature" value="spread">
+              <label for="featSpread">sunbeam spread</label>
+            </div>
+            <div class="control-choice">
+              <input type="radio" id="featAngle" name="observerFeature" value="angle" checked>
+              <label for="featAngle">sunlight angle</label>
+            </div>
+          </fieldset>
+
+          <fieldset class="control-fieldset choicebox">
+            <legend class="control-fieldset__legend sr-only">Earth view type</legend>
+            <div class="control-choice">
+              <input type="radio" id="viewSun" name="viewType" value="sun">
+              <label for="viewSun">view from sun</label>
+            </div>
+            <div class="control-choice">
+              <input type="radio" id="viewSide" name="viewType" value="side" checked>
+              <label for="viewSide">view from side</label>
+            </div>
+          </fieldset>
+        </div>
+
+        <!-- Lower right: sunlight angle / sunbeam spread -->
+        <section class="panel sim-sunlight" aria-labelledby="sunlight-heading">
+          <h2 id="sunlight-heading" class="sr-only">Sunlight on the ground</h2>
+          <div class="stage-wrap">
+            <canvas id="sunlightCanvas" class="stage-canvas" width="365" height="220"
+                    aria-describedby="sunlight-live" role="img"></canvas>
+            <div class="stage-readout stage-readout--tr stage-readout--box" aria-hidden="true">
+              <div id="altitudeField"></div>
+              <div id="sunlightLatField"></div>
+            </div>
+            <div class="stage-dirlabels" aria-hidden="true" id="sunbeamDirLabels">
+              <span class="dir-n">&larr; N</span><span class="dir-s">S &rarr;</span>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <!-- ===================== BOTTOM: TIMELINE ===================== -->
+      <section class="panel sim-timeline" aria-labelledby="timeline-heading">
+        <h2 id="timeline-heading" class="sr-only">Day of year timeline</h2>
+        <div class="timeline-inner">
+          <div class="timeline-slider-wrap">
+            <label for="daySlider" class="sr-only">Day of year</label>
+            <input type="range" id="daySlider" class="day-slider"
+                   min="0" max="364" step="1" value="40"
+                   aria-describedby="dayOfYearField">
+            <div class="month-ticks" id="monthTicks" aria-hidden="true"></div>
+          </div>
+          <div class="timeline-right">
+            <output id="dayOfYearField" class="day-display"></output>
+            <button type="button" id="animButton" class="button">start animation</button>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- ===================== SCREEN-READER LIVE REGIONS ===================== -->
+    <div class="sr-only" aria-live="polite" id="orbit-live"></div>
+    <div class="sr-only" aria-live="polite" id="earth-live"></div>
+    <div class="sr-only" aria-live="polite" id="sunlight-live"></div>
+    <div class="sr-only" aria-live="polite" id="status-live"></div>
+  </div>
+
+  <!-- Foundation equation helper (MathJax wrapper) -->
+  <script src="foundation/kl-unl.js"></script>
+  <!-- Masthead custom element -->
+  <script src="foundation/kl-unl-masthead.js"></script>
+  <!-- Earth coastline data (extracted verbatim from the original GlobeComponent) -->
+  <script src="assets/shoredata.js"></script>
+  <!-- Simulation logic -->
+  <script src="simulation.js"></script>
+</body>
+</html>
