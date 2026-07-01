@@ -33,8 +33,25 @@ body { font-size: 1.125rem; }
   align-items: stretch;          /* left orbit box matches the right column height */
 }
 .sim-orbit    { grid-area: orbit; display: flex; flex-direction: column; }
-.sim-right    { grid-area: right; display: flex; flex-direction: column; gap: 0.5rem; align-self: start; }
 .sim-timeline { grid-area: timeline; }
+
+/* Right column: earth panel on top, the two control boxes side by side, then
+   the sunlight panel. Each control box sits with the panel it drives. */
+.sim-right {
+  grid-area: right;
+  align-self: start;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-areas:
+    "earth earth"
+    "view  feat"
+    "sun   sun";
+  gap: 0.5rem;
+}
+.sim-earth    { grid-area: earth; }
+.rc-view      { grid-area: view; }
+.rc-feat      { grid-area: feat; }
+.sim-sunlight { grid-area: sun; }
 
 /* The orbit stage grows to fill the extra height; the canvas keeps its aspect
    ratio and centres in the (black) stage, so the left box equals the combined
@@ -148,12 +165,7 @@ body { font-size: 1.125rem; }
 .under-stage .control-fieldset { padding: 0; }
 .subsolar-row { padding-top: 0.15rem; }
 
-/* ----- Right-column control boxes (two radio groups side by side) ----- */
-.sim-rightcontrols {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.5rem;
-}
+/* ----- Right-column control boxes ----- */
 .choicebox {
   border: 1px solid var(--border-color, #767676) !important;
   border-radius: 4px;
@@ -241,7 +253,16 @@ mjx-container { color: inherit; }
 
 @media (max-width: 36rem) {
   body { font-size: 1.0625rem; }
-  .sim-rightcontrols { grid-template-columns: 1fr; }
+  /* Stack into one column, and put each control box with the panel it drives:
+     earth panel, its view-type control, sunlight panel, its feature control. */
+  .sim-right {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "earth"
+      "view"
+      "sun"
+      "feat";
+  }
   .under-stage { flex-direction: column; gap: 0.4rem; }
   .stage-hint { font-size: 0.72rem; max-width: 52%; }
 }

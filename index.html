@@ -100,32 +100,31 @@
           </div>
         </section>
 
-        <!-- Middle right: feature + view-type radio groups -->
-        <div class="sim-rightcontrols">
-          <fieldset class="control-fieldset choicebox">
-            <legend class="control-fieldset__legend sr-only">Lower panel display</legend>
-            <div class="control-choice">
-              <input type="radio" id="featSpread" name="observerFeature" value="spread">
-              <label for="featSpread">sunbeam spread</label>
-            </div>
-            <div class="control-choice">
-              <input type="radio" id="featAngle" name="observerFeature" value="angle" checked>
-              <label for="featAngle">sunlight angle</label>
-            </div>
-          </fieldset>
+        <!-- View-type radio group (controls the earth panel above) -->
+        <fieldset class="control-fieldset choicebox rc-view">
+          <legend class="control-fieldset__legend sr-only">Earth view type</legend>
+          <div class="control-choice">
+            <input type="radio" id="viewSun" name="viewType" value="sun">
+            <label for="viewSun">view from sun</label>
+          </div>
+          <div class="control-choice">
+            <input type="radio" id="viewSide" name="viewType" value="side" checked>
+            <label for="viewSide">view from side</label>
+          </div>
+        </fieldset>
 
-          <fieldset class="control-fieldset choicebox">
-            <legend class="control-fieldset__legend sr-only">Earth view type</legend>
-            <div class="control-choice">
-              <input type="radio" id="viewSun" name="viewType" value="sun">
-              <label for="viewSun">view from sun</label>
-            </div>
-            <div class="control-choice">
-              <input type="radio" id="viewSide" name="viewType" value="side" checked>
-              <label for="viewSide">view from side</label>
-            </div>
-          </fieldset>
-        </div>
+        <!-- Feature radio group (controls the sunlight panel below) -->
+        <fieldset class="control-fieldset choicebox rc-feat">
+          <legend class="control-fieldset__legend sr-only">Lower panel display</legend>
+          <div class="control-choice">
+            <input type="radio" id="featSpread" name="observerFeature" value="spread">
+            <label for="featSpread">sunbeam spread</label>
+          </div>
+          <div class="control-choice">
+            <input type="radio" id="featAngle" name="observerFeature" value="angle" checked>
+            <label for="featAngle">sunlight angle</label>
+          </div>
+        </fieldset>
 
         <!-- Lower right: sunlight angle / sunbeam spread -->
         <section class="panel sim-sunlight" aria-labelledby="sunlight-heading">

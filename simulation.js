@@ -1005,34 +1005,50 @@
     dom.sunbeamDirLabels.style.display = (Sim.observerFeature === 'angle') ? 'flex' : 'none';
   }
 
-  // "sunlight angle" -- blue sky + green ground + parallel beams at sun altitude.
+  // "sunlight angle" -- blue sky + green ground + parallel sunbeams striking the
+  // ground at the sun's altitude.  The beams make an angle equal to the sun's
+  // altitude with the HORIZON: overhead sun (alt 90) -> straight down; sun on the
+  // horizon (alt 0) -> parallel to the ground; at a pole (alt = |dec|, small) the
+  // light grazes almost horizontally.  They arrive from the sun's side -- N (left)
+  // or S (right) -- and pass smoothly through vertical as the sun crosses the
+  // zenith, instead of skipping side to side.
   function renderSideSunbeam(ctx, W, H) {
-    var horizonHeight = 50, alt = Sim.altValue;
+    var horizonHeight = 50, alt = Sim.altValue, dir = Sim.sunDirection;
     ctx.clearRect(0, 0, W, H);
+    var groundY = H - horizonHeight;
     // sky
-    var sky = ctx.createLinearGradient(0, 0, 0, H - horizonHeight);
+    var sky = ctx.createLinearGradient(0, 0, 0, groundY);
     sky.addColorStop(0, '#6599ef'); sky.addColorStop(1, '#b0b6f2');
-    ctx.fillStyle = sky; ctx.fillRect(0, 0, W, H - horizonHeight);
+    ctx.fillStyle = sky; ctx.fillRect(0, 0, W, groundY);
     // ground
-    var gnd = ctx.createLinearGradient(0, H - horizonHeight, 0, H);
+    var gnd = ctx.createLinearGradient(0, groundY, 0, H);
     gnd.addColorStop(0, '#7ea213'); gnd.addColorStop(1, '#326d1d');
-    ctx.fillStyle = gnd; ctx.fillRect(0, H - horizonHeight, W, horizonHeight);
+    ctx.fillStyle = gnd; ctx.fillRect(0, groundY, W, horizonHeight);
 
-    // beams
-    var fade = Math.max(0, Math.sin(alt * DEG));
-    ctx.save();
-    ctx.globalAlpha = fade === 0 ? 0 : Math.pow(fade, 0.5);
-    var dir = Sim.sunDirection;
-    var ang = (90 + alt) * DEG;       // beam travel direction (pointing down-into-ground)
-    var dx = Math.cos(ang), dy = Math.sin(ang);
-    if (dir === 'S') { dx = -dx; }    // mirror for southern direction
-    var len = 46;
-    var spacing = (alt > 0) ? 30 / Math.sin(alt * DEG) : 30;
-    var baseY = H - horizonHeight;
-    for (var x = -40; x < W + 40; x += Math.min(120, spacing)) {
-      drawArrow(ctx, x - dx * len, baseY - 90 - dy * len + (x * (dir === 'S' ? -1 : 1) * 0), x, baseY, rgba(16777164, 85));
+    var fade = Math.max(0, Math.sin(alt * DEG));   // beams fade as the sun sets
+    if (fade > 0) {
+      var a = alt * DEG, sinA = Math.max(Math.sin(a), 1e-3), cosA = Math.cos(a);
+      // travel direction: horizontal component toward the far side, down by sin(alt)
+      var hSign = (dir === 'N') ? 1 : -1;          // N: sun at left, light travels right
+      var tdx = hSign * cosA, tdy = sinA;
+      // Each beam is a full-height ray: it enters at the top edge (y = 0) and its
+      // arrowhead lands on the ground, so the field fills the whole sky with
+      // evenly-spaced parallel arrows. Heads are spaced along the ground so the
+      // perpendicular density stays uniform at every sun angle.
+      var beamSpacing = 28;
+      var groundStep = beamSpacing / sinA;         // head spacing along the ground
+      var L = groundY / tdy;                        // ray length from top edge to ground
+      var shift = tdx * L;                          // horizontal offset of a beam's top
+      var lo = Math.min(0, shift) - groundStep;
+      var hi = Math.max(W, W + shift) + groundStep;
+      ctx.save();
+      ctx.beginPath(); ctx.rect(0, 0, W, H); ctx.clip();
+      ctx.globalAlpha = Math.min(1, Math.pow(fade, 0.5));
+      for (var xh = lo; xh <= hi; xh += groundStep) {
+        drawArrow(ctx, xh - shift, 0, xh, groundY, rgba(16777164, 90));
+      }
+      ctx.restore();
     }
-    ctx.restore();
 
     // night pall
     var pall;
