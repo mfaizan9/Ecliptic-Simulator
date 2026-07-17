@@ -385,22 +385,54 @@
     var e37 = f * (B.b6 * c.q0 + B.b7 * c.q3 + B.b8 * c.q6);
     var e36 = f * (B.b6 * c.q1 + B.b7 * c.q4 + B.b8 * c.q7);
     var e35 = f * (B.b6 * c.q2 + B.b7 * c.q5 + B.b8 * c.q8);
-    var data = window.SHORE_DATA || [], poly, pt, j, k;
+    // When a coastline leaves the visible hemisphere, the fill must follow the
+    // globe's LIMB (a circular arc drawn at 1.5*R and clipped to the disk), not a
+    // straight chord -- otherwise continents glitch at the rotating edge. This
+    // ports the AS GlobeComponent.update() limb-following logic.
+    var data = window.SHORE_DATA || [], j, k;
+    var arcR = 1.5 * R;
+    var arcStep = 2 * Math.acos(1.1 / 1.5);          // ~85.7deg; coarse is fine (clipped)
     ctx.fillStyle = '#cdb49c';
+    function projX(p) { return (p[0] * e13 + p[1] * e12 + p[2] * e17) * sc; }
+    function projY(p) { return (p[0] * e16 + p[1] * e15 + p[2] * e14) * sc; }
+    function depthOf(p) { return p[0] * e37 + p[1] * e36 + p[2] * e35; }
     for (j = 0; j < data.length; j++) {
-      poly = data[j];
-      ctx.beginPath();
-      var started = false;
-      for (k = 0; k < poly.length; k++) {
-        pt = poly[k];
-        var depth = pt[0] * e37 + pt[1] * e36 + pt[2] * e35;
-        if (depth <= 0) continue;                 // back-facing point: skip
-        var lx = (pt[0] * e13 + pt[1] * e12 + pt[2] * e17) * sc;
-        var ly = (pt[0] * e16 + pt[1] * e15 + pt[2] * e14) * sc;
-        if (!started) { ctx.moveTo(cx + lx, cy + ly); started = true; }
-        else ctx.lineTo(cx + lx, cy + ly);
+      var poly = data[j], len = poly.length;
+      // find a front-facing point preceded by a front-facing point (a safe start)
+      var startIdx = -1, prevFront = false;
+      for (k = 0; k < len; k++) {
+        if (depthOf(poly[k]) > 0) { if (prevFront) { startIdx = k; break; } prevFront = true; }
+        else prevFront = false;
       }
-      if (started) { ctx.closePath(); ctx.fill(); }
+      if (startIdx < 0) continue;                    // never two consecutive front points
+      ctx.beginPath();
+      ctx.moveTo(cx + projX(poly[startIdx]), cy + projY(poly[startIdx]));
+      var prevBack = false, angleLast = 0, w, p, isBack, ppx, ppy;
+      for (w = 1; w < len; w++) {
+        p = poly[(startIdx + w) % len];
+        isBack = depthOf(p) < 0;
+        ppx = projX(p); ppy = projY(p);
+        if (!isBack) {
+          if (prevBack) {                            // re-entering front: arc along the limb
+            var ang = Math.atan2(ppy, ppx);
+            var da = mod(ang - angleLast, TAU), steps, inc;
+            if (da > Math.PI) { da = TAU - da; steps = Math.ceil(da / arcStep); inc = -da / steps; }
+            else { steps = Math.ceil(da / arcStep); inc = da / steps; }
+            for (var t = 1; t <= steps; t++) {
+              var aa = angleLast + inc * t;
+              ctx.lineTo(cx + arcR * Math.cos(aa), cy + arcR * Math.sin(aa));
+            }
+            ctx.lineTo(cx + ppx, cy + ppy);
+          } else {
+            ctx.lineTo(cx + ppx, cy + ppy);
+          }
+        } else if (!prevBack) {                      // leaving front: go out to the limb
+          angleLast = Math.atan2(ppy, ppx);
+          ctx.lineTo(cx + arcR * Math.cos(angleLast), cy + arcR * Math.sin(angleLast));
+        }
+        prevBack = isBack;
+      }
+      ctx.closePath(); ctx.fill();
     }
 
     // --- night side (terminator shading) ---
@@ -430,19 +462,18 @@
     ctx.lineWidth = 1; ctx.strokeStyle = 'rgba(80,80,90,0.6)'; ctx.stroke();
   };
   GlobeComponent.prototype.drawAxes = function (ctx, S, cx, cy) {
-    var c = this.c, B = S.c, sc = this.scale / 100;
+    var c = this.c, sc = this.scale / 100;
     // pole direction in globe frame is (0,0,1) rotated by q -> column 2 of q
     var px = c.q2, py = c.q5, pz = c.q8;             // celestial-space pole dir
     var ext = 1.5 * this.radius * sc;
     var s = S.CtoSz({ x: px, y: py, z: pz });
     var n = Math.sqrt(s.x * s.x + s.y * s.y + s.z * s.z) || 1;
     var ux = s.x / n * ext, uy = s.y / n * ext;
-    // north (red) and south (blue) halves
+    // Single dark blue-grey rotation axis (AS setAxisStyle colour 0x504850), so it
+    // is not confused with the red latitude circle.
     ctx.lineWidth = 2;
-    ctx.strokeStyle = (s.z >= 0) ? 'rgba(255,0,0,0.95)' : 'rgba(255,0,0,0.4)';
-    ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + ux, cy + uy); ctx.stroke();
-    ctx.strokeStyle = (s.z < 0) ? 'rgba(0,0,255,0.95)' : 'rgba(0,0,255,0.4)';
-    ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx - ux, cy - uy); ctx.stroke();
+    ctx.strokeStyle = rgba(5263440, 100);
+    ctx.beginPath(); ctx.moveTo(cx - ux, cy - uy); ctx.lineTo(cx + ux, cy + uy); ctx.stroke();
   };
 
   /* ===========================================================================
@@ -481,9 +512,21 @@
     ctx.fillText(text, x, y);
     ctx.restore();
   }
-  function drawSubsolar(ctx, x, y) {
-    ctx.save();
-    ctx.beginPath(); ctx.arc(x, y, 5, 0, TAU);
+  // Subsolar marker: a small disc lying FLAT on the sphere surface. Given the
+  // surface normal projected to screen (nx,ny,nz, not necessarily unit) it draws
+  // as a foreshortened ellipse -- squashed along the normal's screen direction by
+  // |nz| -- so face-on it is a circle and at the limb it collapses to a line, i.e.
+  // the side-view of a circle painted on the globe.
+  function drawSubsolar(ctx, x, y, nx, ny, nz) {
+    var R = 5;
+    ctx.save(); ctx.translate(x, y);
+    if (nx !== undefined) {
+      var mag = Math.sqrt(nx * nx + ny * ny + nz * nz) || 1;
+      var minor = Math.max(0.1, Math.abs(nz) / mag);   // squash factor along the normal
+      ctx.rotate(Math.atan2(ny, nx));                  // align x-axis with the normal
+      ctx.scale(minor, 1);
+    }
+    ctx.beginPath(); ctx.arc(0, 0, R, 0, TAU);
     ctx.fillStyle = 'rgba(255,210,40,0.95)'; ctx.fill();
     ctx.strokeStyle = 'rgba(120,80,0,0.9)'; ctx.lineWidth = 1; ctx.stroke();
     ctx.restore();
@@ -779,7 +822,9 @@
       // subsolar point
       if (Sim.showSubsolar && GS.subSolar) {
         var sp = GS.WtoSz(GS.parsePoint(GS.subSolar));
-        if (sp.z >= 0) drawSubsolar(ctx, ex + sp.x, ey + sp.y);
+        // sp is the surface point == its outward normal (scaled): use it to lay the
+        // subsolar disc flat on the globe (foreshortened).
+        if (sp.z >= 0) drawSubsolar(ctx, ex + sp.x, ey + sp.y, sp.x, sp.y, sp.z);
       }
     }
 
@@ -868,10 +913,11 @@
     }
     if (!Sim.orbitLabels) return;
     if (sun) {
-      labelAt(ctx, cx, cy, { x: 0, y: 1.16, z: 0, system: 'horizon' }, 'to AE', 16777215);
-      labelAt(ctx, cx, cy, { x: -1.16, y: 0, z: 0, system: 'horizon' }, 'to WS', 16777215);
-      labelAt(ctx, cx, cy, { x: 0, y: -1.16, z: 0, system: 'horizon' }, 'to VE', 16777215);
-      labelAt(ctx, cx, cy, { x: 1.16, y: 0, z: 0, system: 'horizon' }, 'to SS', 16777215);
+      // arrows from the orbit pointing out to the equinoxes/solstices, + labels
+      orbitArrow(ctx, cx, cy, 0, 1, 'to AE');
+      orbitArrow(ctx, cx, cy, -1, 0, 'to WS');
+      orbitArrow(ctx, cx, cy, 0, -1, 'to VE');
+      orbitArrow(ctx, cx, cy, 1, 0, 'to SS');
       labelAt(ctx, cx, cy, { alt: 0, az: OV.viewerAzimuth - 30, r: 1.15 }, 'orbit path', 16777215);
     } else {
       labelAt(ctx, cx, cy, { alt: 0, az: OV.viewerAzimuth + 30 }, 'celestial equator', 4688176);
@@ -888,6 +934,15 @@
     var p = OV.parsePoint(pos), sp = (p.sys === 0) ? OV.WtoSz(p) : OV.CtoSz(p);
     if (sp.z < -0.001 && p.r <= 1.0001) { /* behind, dim */ }
     drawLabel(ctx, cx + sp.x, cy + sp.y, text, color);
+  }
+  // A short arrow from the orbit pointing out toward an equinox/solstice, with its
+  // label just beyond the arrowhead (dir = horizon-plane unit vector).
+  function orbitArrow(ctx, cx, cy, dx, dy, text) {
+    var a = OV.WtoSz(OV.parsePoint({ x: dx * 1.02, y: dy * 1.02, z: 0, system: 'horizon' }));
+    var b = OV.WtoSz(OV.parsePoint({ x: dx * 1.16, y: dy * 1.16, z: 0, system: 'horizon' }));
+    drawArrow(ctx, cx + a.x, cy + a.y, cx + b.x, cy + b.y, 'rgba(255,255,255,0.9)');
+    var t = OV.WtoSz(OV.parsePoint({ x: dx * 1.3, y: dy * 1.3, z: 0, system: 'horizon' }));
+    drawLabel(ctx, cx + t.x, cy + t.y, text, 16777215);
   }
 
   // Render the upper-right earth view.
@@ -909,11 +964,12 @@
     // subsolar point on earth-view globe
     if (Sim.showSubsolar) {
       if (Sim.viewType === 'side') {
-        // side subsolar marker sits on the lit limb
-        var a = EV.raysAlt * DEG;
-        drawSubsolar(ctx, cx + 75 * Math.cos(a), cy - 75 * Math.sin(a));
+        // On the lit limb, seen edge-on: the disc reads as the side view of a
+        // circle lying flat on the surface (a short ellipse tangent to the limb).
+        var a = EV.raysAlt * DEG, ca = Math.cos(a), sa = Math.sin(a);
+        drawSubsolar(ctx, cx + 75 * ca, cy - 75 * sa, ca, -sa, 0.32);
       } else {
-        drawSubsolar(ctx, cx, cy);   // facing viewer
+        drawSubsolar(ctx, cx, cy);   // facing viewer -> full circle
       }
     }
 
@@ -1076,15 +1132,26 @@
       ctx.beginPath(); ctx.moveTo(0, cy - off); ctx.lineTo(W, cy - off); ctx.stroke();
       ctx.beginPath(); ctx.moveTo(0, cy + off); ctx.lineTo(W, cy + off); ctx.stroke();
     }
-    // beam spot: a circle of diameter bd stretched vertically by 1/sin(alt)
-    var alt = Sim.altValue, s = Math.sin(alt * DEG); if (s < 0) s = 0;
-    var alpha = s === 0 ? 0 : Math.pow(s, 0.5);
-    var ys = (s < 0.05 ? 0.05 : s);
+    // beam spot: a circle of diameter bd stretched vertically by 1/sin(alt).
+    // Kept intense (bright saturated yellow) and its stretch capped so it stays
+    // clearly visible even at low, grazing sun angles.
+    var alt = Sim.altValue, s = Math.sin(alt * DEG); if (s < 0.001) s = 0.001;
+    var ys = Math.max(s, 0.09);                        // cap stretch -> stays visible
     ctx.save(); ctx.translate(cx, cy); ctx.scale(1, 1 / ys);
-    ctx.globalAlpha = alpha;
-    var sg = ctx.createRadialGradient(0, 0, bd * 0.1, 0, 0, bd / 2);
-    sg.addColorStop(0, '#fff7c0'); sg.addColorStop(1, 'rgba(255,236,120,0.1)');
+    ctx.globalAlpha = Math.max(0.55, Math.pow(s, 0.35));
+    var sg = ctx.createRadialGradient(0, 0, bd * 0.12, 0, 0, bd / 2);
+    sg.addColorStop(0, 'rgba(255,236,110,1)');
+    sg.addColorStop(0.65, 'rgba(255,220,70,0.85)');
+    sg.addColorStop(1, 'rgba(255,208,40,0.18)');
     ctx.fillStyle = sg; ctx.beginPath(); ctx.arc(0, 0, bd / 2, 0, TAU); ctx.fill();
+    ctx.restore();
+
+    // N / S ground-direction indicators (the footprint spreads along N-S)
+    ctx.save();
+    ctx.fillStyle = '#333'; ctx.font = 'bold 13px Sans-Serif, Arial, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top'; ctx.fillText('N', cx, 4);
+    ctx.textBaseline = 'bottom'; ctx.fillText('S', cx, H - 4);
     ctx.restore();
 
     // pall
@@ -1188,62 +1255,80 @@
              y: (evt.clientY - rect.top) * scaleY - center.y };
   }
 
-  // Orbit-panel drag.  The perspective / orbital plane stays FIXED; the mouse
-  // only moves the earth around its orbital path (orbit view) — equivalently the
-  // sun along the ecliptic (celestial-sphere view) — which is the same "earth
-  // revolves" action.  This ports the AS globe-drag and Sun-Icon-drag inverses.
+  // Orbit-panel drag, matching the original: pressing ON the draggable body (the
+  // earth in orbit view, the sun in celestial view) drags it around its path;
+  // pressing empty space rotates the 3-D perspective. Dragging the body uses the
+  // AS globe-drag / Sun-Icon-drag inverses; the background rotates via the AS
+  // background-drag (setThetaAndPhi from the cursor delta).
   function setupOrbitDrag() {
     var drag = null;
+    var GRAB = 30;   // px hit-radius around the draggable body
     elOrbit.addEventListener('pointerdown', function (e) {
       e.preventDefault();
       try { elOrbit.setPointerCapture(e.pointerId); } catch (err) {}
       try { elOrbit.focus({ preventScroll: true }); } catch (err) { elOrbit.focus(); }
       var m = canvasPoint(elOrbit, OV, orbitCenter, e);
       if (Sim.centeredObject === 'sun') {
-        // grab the earth; keep its offset from the cursor so it doesn't jump
         var gsp = OV.WtoSz(OV.parsePoint(GS.posHorizon));
-        drag = { mode: 'earth', ox: gsp.x - m.x, oy: gsp.y - m.y };
+        if (Math.hypot(m.x - gsp.x, m.y - gsp.y) <= GRAB) {
+          drag = { mode: 'earth', ox: gsp.x - m.x, oy: gsp.y - m.y };
+          return;
+        }
       } else {
-        // grab the sun on the celestial sphere
-        OV.sunArcsVisible = true;
-        var c = OV.c, r = c.r, x = m.x, y = m.y, rr = Math.sqrt(x * x + y * y), z, side;
+        var c = OV.c, r = c.r;
         var ssp = OV.CtoSz(OV.parsePoint(OV.sun_pos));
-        if (rr > r) { x *= r / rr; y *= r / rr; z = 0; side = 0; }
-        else if (ssp.z > 0) { z = Math.sqrt(r * r - rr * rr); side = 1; }
-        else { z = -Math.sqrt(r * r - rr * rr); side = 0; }
-        var loc8 = R2H * Math.atan2(c.b1 * x + c.b4 * y + c.b7 * z, c.b0 * x + c.b3 * y + c.b6 * z);
-        drag = { mode: 'sun', raOffset: loc8 - mod(OV.sun_pos.ra, 24), side: side };
-        update();
+        if (Math.hypot(m.x - ssp.x, m.y - ssp.y) <= GRAB) {
+          OV.sunArcsVisible = true;
+          var x = m.x, y = m.y, rr = Math.sqrt(x * x + y * y), z, side;
+          if (rr > r) { x *= r / rr; y *= r / rr; z = 0; side = 0; }
+          else if (ssp.z > 0) { z = Math.sqrt(r * r - rr * rr); side = 1; }
+          else { z = -Math.sqrt(r * r - rr * rr); side = 0; }
+          var loc8 = R2H * Math.atan2(c.b1 * x + c.b4 * y + c.b7 * z, c.b0 * x + c.b3 * y + c.b6 * z);
+          drag = { mode: 'sun', raOffset: loc8 - mod(OV.sun_pos.ra, 24), side: side };
+          update();
+          return;
+        }
       }
+      // empty space -> rotate the perspective
+      drag = { mode: 'persp', sx: m.x, sy: m.y, th: OV._theta, ph: OV._phi };
     });
     elOrbit.addEventListener('pointermove', function (e) {
       if (!drag) return;
       e.preventDefault();
       var m = canvasPoint(elOrbit, OV, orbitCenter, e);
       if (drag.mode === 'earth') orbitDragEarth(m.x + drag.ox, m.y + drag.oy);
-      else orbitDragSun(m.x, m.y, drag);
+      else if (drag.mode === 'sun') orbitDragSun(m.x, m.y, drag);
+      else {
+        OV.setThetaAndPhi(RAD * (drag.th - (m.x - drag.sx) / OV.c.r),
+                          RAD * (drag.ph + (m.y - drag.sy) / OV.c.r));
+        renderOrbit();
+      }
     });
     function endDrag() { if (!drag) return; drag = null; OV.sunArcsVisible = false; update(); }
     elOrbit.addEventListener('pointerup', endDrag);
     elOrbit.addEventListener('pointercancel', endDrag);
     elOrbit.addEventListener('lostpointercapture', endDrag);
 
-    // keyboard: move the earth around its orbit (change the day) — the plane
-    // stays fixed, matching the mouse behaviour.
+    // keyboard: arrows rotate the perspective (the day is set via the timeline
+    // slider); Shift+arrows move the earth around its orbit.
     elOrbit.addEventListener('keydown', function (e) {
-      var step = 0, handled = true;
-      if (e.key === 'ArrowRight' || e.key === 'ArrowUp') step = 1;
-      else if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') step = -1;
-      else if (e.key === 'PageUp') step = 7;
-      else if (e.key === 'PageDown') step = -7;
-      else handled = false;
-      if (handled) {
-        e.preventDefault();
-        var d = mod(parseInt(dom.daySlider.value, 10) + step, 365);
+      var handled = true, step = 5;
+      if (e.shiftKey && (e.key === 'ArrowLeft' || e.key === 'ArrowRight' ||
+                         e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+        var d = mod(parseInt(dom.daySlider.value, 10) + ((e.key === 'ArrowRight' || e.key === 'ArrowUp') ? 1 : -1), 365);
         dom.daySlider.value = d; changeDayOfYear(d);
         announce('orbit-live', 'Earth moved to ' + getDayString(d) + '.');
-      }
+      } else if (e.key === 'ArrowLeft') OV.setThetaAndPhi(OV.theta + step, OV.phi), rotAnnounce();
+      else if (e.key === 'ArrowRight') OV.setThetaAndPhi(OV.theta - step, OV.phi), rotAnnounce();
+      else if (e.key === 'ArrowUp') OV.setThetaAndPhi(OV.theta, OV.phi + step), rotAnnounce();
+      else if (e.key === 'ArrowDown') OV.setThetaAndPhi(OV.theta, OV.phi - step), rotAnnounce();
+      else handled = false;
+      if (handled) { e.preventDefault(); update(); }
     });
+    function rotAnnounce() {
+      announce('orbit-live', 'Perspective: azimuth ' + Math.round(OV.viewerAzimuth) +
+        ' degrees, altitude ' + Math.round(OV.phi) + ' degrees.');
+    }
   }
 
   // Orbit view: recover the earth's orbital azimuth from the cursor.

@@ -126,10 +126,12 @@ direction labels; and the bottom month timeline with the day display and the
   to zoom; their projected positions still track the geometry.
 * **Keyboard equivalents added** for every drag (see ACCESSIBILITY.md). These are
   additions, not behaviour changes — both paths mutate the same state.
-* **Orbit-view perspective rotation removed (by request).** The original let you
-  drag the background to tilt the whole 3-D view. Per the maintainer's request the
-  orbital plane is now held fixed at the reset orientation; the mouse in the orbit
-  panel only moves the earth around its orbital path (orbit view) / the sun along
-  the ecliptic (celestial-sphere view), which is the "earth revolves" action. The
-  earth/sun drag uses the faithful AS inverse projections (globe-drag and
-  Sun-Icon-drag). The "click and drag to change perspective" hint was removed.
+* **Orbit-view drag (original dual behaviour, restored).** Matching the original:
+  pressing ON the draggable body (the earth in orbit view, the sun in the
+  celestial-sphere view) drags it around its path (the "earth revolves" action,
+  via the AS globe-drag / Sun-Icon-drag inverses); pressing empty space rotates
+  the 3-D perspective (AS background-drag). Keyboard on the orbit canvas: arrows
+  rotate the perspective, Shift+arrows step the earth around the orbit (the day is
+  also fully settable from the timeline slider). (An interim build had removed the
+  perspective rotation on one reviewer's request; a later review asked for it back,
+  so the faithful dual behaviour is what ships.)

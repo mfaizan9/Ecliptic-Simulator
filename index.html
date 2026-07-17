@@ -8,7 +8,7 @@
   <!-- Shared KL-UNL foundation (copied in unchanged) -->
   <link rel="stylesheet" href="foundation/kl-unl.css" type="text/css" media="all">
   <!-- Sim-specific styles only -->
-  <link rel="stylesheet" href="styles/styles.css" type="text/css" media="all">
+  <link rel="stylesheet" href="styles/styles.css?v=3" type="text/css" media="all">
 
   <!-- MathJax: bundled locally (no CDN at runtime). tex-svg output keeps the
        MathJax contextual menu ("Show Math As...") working. -->
@@ -37,7 +37,7 @@
                   aria-describedby="orbit-instr-persp orbit-instr-drag orbit-live"
                   tabindex="0"></canvas>
 
-          <p class="stage-hint stage-hint--tl" id="orbit-instr-persp"></p>
+          <p class="stage-hint stage-hint--tl" id="orbit-instr-persp">click and drag to change perspective</p>
           <p class="stage-hint stage-hint--tr" id="orbit-instr-drag"></p>
 
           <div class="stage-readout stage-readout--bl" aria-hidden="true">
@@ -176,6 +176,6 @@
   <!-- Earth coastline data (extracted verbatim from the original GlobeComponent) -->
   <script src="assets/shoredata.js"></script>
   <!-- Simulation logic -->
-  <script src="simulation.js"></script>
+  <script src="simulation.js?v=3"></script>
 </body>
 </html>

@@ -49,9 +49,12 @@ body { font-size: 1.125rem; }
   gap: 0.5rem;
 }
 .sim-earth    { grid-area: earth; }
-.rc-view      { grid-area: view; }
-.rc-feat      { grid-area: feat; }
+.rc-view      { grid-area: view; align-self: start; }
+.rc-feat      { grid-area: feat; align-self: start; margin-top: 1.5rem; }
 .sim-sunlight { grid-area: sun; }
+/* The feature box (controls the lower sunlight panel) sits lower, and the
+   view box (controls the earth panel above) sits higher, so each box visibly
+   associates with the graphic it drives. */
 
 /* The orbit stage grows to fill the extra height; the canvas keeps its aspect
    ratio and centres in the (black) stage, so the left box equals the combined
@@ -117,6 +120,8 @@ body { font-size: 1.125rem; }
 }
 .stage-readout--bl { bottom: 0.5rem; left: 0.6rem; }
 .stage-readout--tr { top: 0.5rem; right: 0.6rem; }
+/* Nudge the sunlight-panel readout box down so it clears the top-centre N label. */
+.sim-sunlight .stage-readout--box { top: 1.6rem; }
 .stage-readout--box {
   background: rgba(255,255,255,0.92);
   color: #1a1a1a;
@@ -263,6 +268,7 @@ mjx-container { color: inherit; }
       "sun"
       "feat";
   }
+  .rc-feat { margin-top: 0; }         /* no stagger when stacked single-column */
   .under-stage { flex-direction: column; gap: 0.4rem; }
   .stage-hint { font-size: 0.72rem; max-width: 52%; }
 }
